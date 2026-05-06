@@ -27,6 +27,11 @@ services:
     # workspace directories preserve ownership.
     user: "1001:1001"
 
+    # Add host docker group (gid 988) so the user can use docker.sock
+    # for `docker ps`, etc., from inside the container.
+    group_add:
+      - "988"
+
     # Host visibility:
     #   - docker.sock: Hermes can `docker ps`, inspect, and manage any container.
     #     This is privileged. Acceptable here because Hermes is the operator's
