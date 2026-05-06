@@ -1,0 +1,52 @@
+# Override: run hermes-agent in gateway mode + give it host visibility
+# and access to the SPARK docker network (vault, qdrant, ollama, etc.).
+#
+# Created 2026-05-03 by operator setup.
+# Updated 2026-05-06: docker.sock + spark-network + host workspace mounts
+#                     so Hermes can see/manage host containers and use
+#                     internal services by docker DNS name.
+
+services:
+  hermes-agent:
+    # Run the API gateway daemon. API_SERVER_ENABLED env in compose makes
+    # it bind 0.0.0.0:8642 (per upstream entrypoint behavior).
+    command: ["hermes", "gateway", "run"]
+    # tty + stdin_open let the gateway claim a TTY-like fd and not flake
+    # on the "not a terminal" guard
+    tty: true
+    stdin_open: true
+    restart: unless-stopped
+
+    # Attach to the shared SPARK docker network so Hermes can reach
+    # vault:8200, qdrant:6333, ollama:11434, etc. by service name.
+    networks:
+      - default
+      - spark-network
+
+    # Run as host pegasus user (uid 1001) so writes to mounted host
+    # workspace directories preserve ownership.
+    user: "1001:1001"
+
+    # Host visibility:
+    #   - docker.sock: Hermes can `docker ps`, inspect, and manage any container.
+    #     This is privileged. Acceptable here because Hermes is the operator's
+    #     trusted agent on this hardware. Treat as if Hermes has root on host.
+    #   - /home/pegasus/.hermes: persistent skills/missions/config (rw)
+    #   - /home/pegasus/.openclaw: shared OpenClaw state for inter-agent ops (rw)
+    #   - /home/pegasus: full host workspace, READ-ONLY for safety. Hermes can
+    #     inspect Projects, configs, and logs but cannot accidentally clobber
+    #     non-hermes files. Switch to rw only with explicit operator decision.
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/pegasus/.hermes:/home/workspace/.hermes
+      - /home/pegasus/.openclaw:/home/workspace/.openclaw
+      - /home/pegasus:/host/pegasus:ro
+
+  hermes-workspace:
+    networks:
+      - default
+      - spark-network
+
+networks:
+  spark-network:
+    external: true
