@@ -27,6 +27,12 @@ services:
     # workspace directories preserve ownership.
     user: "1001:1001"
 
+    # Give Hermes a real home and PATH so tooling that expects them works
+    # (claude/hermes config writes to ~/.local, vault-get is on PATH).
+    environment:
+      HOME: /home/workspace/.hermes
+      PATH: /home/workspace/.openclaw/scripts:/home/pegasus/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
     # Add host docker group (gid 988) so the user can use docker.sock
     # for `docker ps`, etc., from inside the container.
     group_add:
@@ -46,6 +52,9 @@ services:
       - /home/pegasus/.hermes:/home/workspace/.hermes
       - /home/pegasus/.openclaw:/home/workspace/.openclaw
       - /home/pegasus:/host/pegasus:ro
+      # vault-get + .vault-keys: lets Hermes read secrets the same way SPARK does
+      - /home/pegasus/.local/bin:/home/pegasus/.local/bin:ro
+      - /home/pegasus/docker/vault:/home/pegasus/docker/vault:ro
 
   hermes-workspace:
     networks:
